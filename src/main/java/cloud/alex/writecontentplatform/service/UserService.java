@@ -1,6 +1,6 @@
 package cloud.alex.writecontentplatform.service;
 
-import cloud.alex.writecontentplatform.model.dto.UserQueryRequest;
+import cloud.alex.writecontentplatform.model.dto.user.UserQueryRequest;
 import cloud.alex.writecontentplatform.model.entity.User;
 import cloud.alex.writecontentplatform.model.vo.LoginUserVO;
 import cloud.alex.writecontentplatform.model.vo.UserVO;

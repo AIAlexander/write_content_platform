@@ -1,4 +1,4 @@
-package cloud.alex.writecontentplatform.model.dto;
+package cloud.alex.writecontentplatform.model.dto.user;
 
 /**
  * @author wsh

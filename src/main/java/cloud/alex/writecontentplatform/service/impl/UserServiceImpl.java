@@ -3,7 +3,7 @@ package cloud.alex.writecontentplatform.service.impl;
 import cloud.alex.writecontentplatform.exception.BusinessException;
 import cloud.alex.writecontentplatform.exception.ErrorCode;
 import cloud.alex.writecontentplatform.mapper.UserMapper;
-import cloud.alex.writecontentplatform.model.dto.UserQueryRequest;
+import cloud.alex.writecontentplatform.model.dto.user.UserQueryRequest;
 import cloud.alex.writecontentplatform.model.entity.User;
 import cloud.alex.writecontentplatform.model.enums.UserRoleEnum;
 import cloud.alex.writecontentplatform.model.vo.LoginUserVO;

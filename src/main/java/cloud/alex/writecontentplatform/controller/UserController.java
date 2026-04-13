@@ -8,7 +8,7 @@ import cloud.alex.writecontentplatform.constant.UserConstant;
 import cloud.alex.writecontentplatform.exception.BusinessException;
 import cloud.alex.writecontentplatform.exception.ErrorCode;
 import cloud.alex.writecontentplatform.exception.ThrowUtils;
-import cloud.alex.writecontentplatform.model.dto.*;
+import cloud.alex.writecontentplatform.model.dto.user.*;
 import cloud.alex.writecontentplatform.model.entity.User;
 import cloud.alex.writecontentplatform.model.vo.LoginUserVO;
 import cloud.alex.writecontentplatform.model.vo.UserVO;
