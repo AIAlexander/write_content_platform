@@ -1,5 +1,7 @@
 package cloud.alex.writecontentplatform.service;
 
+import cloud.alex.writecontentplatform.model.dto.image.ImageDto;
+import cloud.alex.writecontentplatform.model.dto.image.ImageRequest;
 import cloud.alex.writecontentplatform.model.enums.ImageMethodEnum;
 
 /**
@@ -7,6 +9,19 @@ import cloud.alex.writecontentplatform.model.enums.ImageMethodEnum;
  * @date 2026/4/13
  */
 public interface ImageSearchService {
+
+    default String getImage(ImageRequest request) {
+        // 默认实现
+        String param = request.getEffectiveParam(getMethod().isAiGenerated());
+        return searchImage(param);
+    }
+
+    default ImageDto getImageData(ImageRequest request) {
+        // 默认实现，通过 getImage 获取 URL。然后转换为 ImageData
+        String url = getImage(request);
+        return ImageDto.fromUrl(url);
+    }
+
 
     /**
      * 根据关键词检索图片
