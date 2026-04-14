@@ -12,7 +12,7 @@ import lombok.Getter;
 @Getter
 public enum ImageMethodEnum {
 
-    PEXELS("pexels", "Pexels图片生成", false, false),
+    PEXELS("PEXELS", "Pexels图片生成", false, false),
 
     NANO_BANANA("NANO_BANANA", "Nano Banana AI 生图", true, false),
 

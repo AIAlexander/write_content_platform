@@ -6,5 +6,5 @@ package cloud.alex.writecontentplatform.service;
  */
 public interface ArticleAsyncService {
 
-    void executeArticle(String taskId, String topic);
+    void executeArticle(String taskId, String style, String topic);
 }

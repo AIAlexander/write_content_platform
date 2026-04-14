@@ -41,7 +41,7 @@ public class ArticleAsyncServiceImpl implements ArticleAsyncService {
      */
     @Async("articleExecutor")
     @Override
-    public void executeArticle(String taskId, String topic) {
+    public void executeArticle(String taskId, String style, String topic) {
         log.info("异步任务开始，taskId={}, topic={}", taskId, topic);
         try {
             SseEmitter emitter = sseEmitterManager.createEmitter(taskId);
@@ -51,6 +51,7 @@ public class ArticleAsyncServiceImpl implements ArticleAsyncService {
             ArticleState state = new ArticleState();
             state.setTaskId(taskId);
             state.setTopic(topic);
+            state.setStyle(style);
             // 提交生成任务
             articleAgentService.executeArticleGeneration(state, message -> {
                 handleAgentMessage(taskId, message, state);
@@ -149,7 +150,7 @@ public class ArticleAsyncServiceImpl implements ArticleAsyncService {
             data.put("type", SseMessageTypeEnum.AGENT3_COMPLETE.getValue());
         } else if (SseMessageTypeEnum.AGENT4_COMPLETE.getValue().equals(message)) {
             data.put("type", SseMessageTypeEnum.AGENT4_COMPLETE.getValue());
-            data.put("imageRequirements", state.getImageRequirementList());
+            data.put("imageRequirements", state.getImageRequirements());
         } else if (SseMessageTypeEnum.AGENT5_COMPLETE.getValue().equals(message)) {
             data.put("type", SseMessageTypeEnum.AGENT5_COMPLETE.getValue());
             data.put("images", state.getImages());

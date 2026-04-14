@@ -25,6 +25,11 @@ public class ArticleState implements Serializable {
     private String topic;
 
     /**
+     * 风格
+     */
+    private String style;
+
+    /**
      * 标题结果（智能体1输出）
      */
     private TitleResult title;
@@ -42,7 +47,7 @@ public class ArticleState implements Serializable {
     /**
      * 配图需求列表（智能体4输出）
      */
-    private List<ImageRequirement> imageRequirementList;
+    private List<ImageRequirement> imageRequirements;
 
     /**
      * 封面图URL（单独存储，images的第一张图就是封面图）
@@ -87,6 +92,24 @@ public class ArticleState implements Serializable {
     }
 
     /**
+     * 智能体4的输入
+     * 要求生成带有 PLACEHOLDER 的 正文 以及 配图
+     */
+    @Data
+    public static class AddImageRequest implements Serializable {
+
+        /**
+         * 带有占位符的正文内容
+         */
+        private String contentWithPlaceholders;
+
+        /**
+         * 配图需求
+         */
+        private List<ImageRequirement> imageRequirements;
+    }
+
+    /**
      * 配图需求
      */
     @Data
@@ -95,6 +118,10 @@ public class ArticleState implements Serializable {
         private String type;
         private String sectionTitle;
         private String keywords;
+        private String imageSource;
+        private String prompt;
+
+        private String placeholderId;
     }
 
     /**
@@ -108,5 +135,6 @@ public class ArticleState implements Serializable {
         private String keywords;
         private String sectionTitle;
         private String description;
+        private String placeholderId;
     }
 }

@@ -4,12 +4,16 @@ import cloud.alex.writecontentplatform.constant.PromptConstant;
 import cloud.alex.writecontentplatform.exception.BusinessException;
 import cloud.alex.writecontentplatform.exception.ErrorCode;
 import cloud.alex.writecontentplatform.model.dto.article.ArticleState;
+import cloud.alex.writecontentplatform.model.dto.image.ImageRequest;
+import cloud.alex.writecontentplatform.model.enums.ArticleStyleEnum;
 import cloud.alex.writecontentplatform.model.enums.ImageMethodEnum;
 import cloud.alex.writecontentplatform.model.enums.SseMessageTypeEnum;
 import cloud.alex.writecontentplatform.service.ArticleAgentService;
 import cloud.alex.writecontentplatform.service.FileService;
 import cloud.alex.writecontentplatform.service.ImageSearchService;
+import cloud.alex.writecontentplatform.strategy.ImageServiceStrategy;
 import cloud.alex.writecontentplatform.utils.JsonUtils;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSON;
 import cn.hutool.json.JSONUtil;
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
@@ -37,7 +41,8 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
     @Resource
     private DashScopeChatModel chatModel;
 
-
+    @Resource
+    private ImageServiceStrategy imageServiceStrategy;
 
     @Resource
     private FileService fileService;
@@ -93,7 +98,7 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
      */
     private void generateTitle(ArticleState state) {
         String prompt = PromptConstant.AGENT1_TITLE_PROMPT
-                .replace("{topic}", state.getTopic());
+                .replace("{topic}", state.getTopic()) + getStylePrompt(state.getStyle());
         String content = callLlm(prompt);
         ArticleState.TitleResult titleResult = JsonUtils.parseJsonResponse(content, ArticleState.TitleResult.class, "标题");
         state.setTitle(titleResult);
@@ -108,7 +113,7 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
     private void generateOutline(ArticleState state, Consumer<String> streamHandler) {
         String prompt = PromptConstant.AGENT2_OUTLINE_PROMPT
                 .replace("{mainTitle}", state.getTitle().getMainTitle())
-                .replace("{subTitle}", state.getTitle().getSubTitle());
+                .replace("{subTitle}", state.getTitle().getSubTitle()) + getStylePrompt(state.getStyle());
         String content = callLlmWithStreaming(prompt, streamHandler, SseMessageTypeEnum.AGENT2_STREAMING);
         ArticleState.OutlineResult outlineResult = JsonUtils.parseJsonResponse(content, ArticleState.OutlineResult.class, "大纲");
         state.setOutline(outlineResult);
@@ -125,7 +130,7 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
         String prompt = PromptConstant.AGENT3_CONTENT_PROMPT
                 .replace("{mainTitle}", state.getTitle().getMainTitle())
                 .replace("{subTitle}", state.getTitle().getSubTitle())
-                .replace("{outline}", outlineText);
+                .replace("{outline}", outlineText) + getStylePrompt(state.getStyle());
         String content = callLlmWithStreaming(prompt, streamHandler, SseMessageTypeEnum.AGENT3_STREAMING);
         state.setContent(content);
         log.info("智能体3：正文生成成功，contentLength={}", content.length());
@@ -140,10 +145,12 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
                 .replace("{mainTitle}", state.getTitle().getMainTitle())
                 .replace("{content}", state.getContent());
         String content = callLlm(prompt);
-        List<ArticleState.ImageRequirement> imageRequirementList = JsonUtils.parseJsonListResponse(content,
-                ArticleState.ImageRequirement.class, "配图需求");
-        state.setImageRequirementList(imageRequirementList);
-        log.info("智能体4：配图需求分析成功，imageRequirementList={}", imageRequirementList.size());
+
+        ArticleState.AddImageRequest addImageRequest = JsonUtils.parseJsonResponse(content,
+                ArticleState.AddImageRequest.class, "配图需求");
+        state.setImageRequirements(addImageRequest.getImageRequirements());
+        state.setContent(addImageRequest.getContentWithPlaceholders());
+        log.info("智能体4：配图需求分析成功，imageRequirementList={}", state.getImageRequirements().size());
     }
 
     /**
@@ -154,31 +161,35 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
     private void generateImages(ArticleState state, Consumer<String> streamHandler) {
         List<ArticleState.ImageResult> imageResults = new ArrayList<>();
 
-//        for (ArticleState.ImageRequirement requirement : state.getImageRequirementList()) {
-//            log.info("智能体5：开始检索配图, position={}, keywords={}",
-//                    requirement.getPosition(), requirement.getKeywords());
-//
-//            String imageUrl = imageSearchService.searchImage(requirement.getKeywords());
-//
-//            // 降级策略
-//            ImageMethodEnum method = imageSearchService.getMethod();
-//            if (imageUrl == null) {
-//                // 生成图片失败，触发降级策略
-//                imageUrl = imageSearchService.getFallbackImage(requirement.getPosition());
-//                method = ImageMethodEnum.PICSUM;
-//                log.warn("智能体5：图片检索失败, 使用降级方案，position={}", requirement.getPosition());
-//            }
-//
-//            // 创建配图结果
-//            ArticleState.ImageResult imageResult = buildImageResult(requirement, imageUrl, method);
-//            imageResults.add(imageResult);
-//
-//            String completeMessage = SseMessageTypeEnum.IMAGE_COMPLETE.getStreamingPrefix() + JSONUtil.toJsonStr(imageResult);
-//            streamHandler.accept(completeMessage);
-//
-//            log.info("智能体5：配图检索成功, position={}, method={}",
-//                    requirement.getPosition(), method.getValue());
-//        }
+        for (ArticleState.ImageRequirement requirement : state.getImageRequirements()) {
+            // 获取调用图片的服务
+            String imageSource = requirement.getImageSource();
+
+            log.info("智能体5：开始检索配图, position={}, keywords={}, prompt:{}, source={}",
+                    requirement.getPosition(), requirement.getKeywords(), requirement.getPrompt(), imageSource);
+
+            ImageRequest imageRequest = ImageRequest.builder()
+                    .prompt(requirement.getPrompt())
+                    .keywords(requirement.getKeywords())
+                    .position(requirement.getPosition())
+                    .type(requirement.getType())
+                    .build();
+
+            ImageServiceStrategy.ImageResult uploadResult = imageServiceStrategy.getImageAndUpload(imageSource, imageRequest);
+
+            String url = uploadResult.getUrl();
+            ImageMethodEnum method = uploadResult.getMethodEnum();
+
+            // 创建配图结果
+            ArticleState.ImageResult imageResult = buildImageResult(requirement, url, method);
+            imageResults.add(imageResult);
+
+            String completeMessage = SseMessageTypeEnum.IMAGE_COMPLETE.getStreamingPrefix() + JSONUtil.toJsonStr(imageResult);
+            streamHandler.accept(completeMessage);
+
+            log.info("智能体5：配图检索成功, position={}, method={}",
+                    requirement.getPosition(), method.getValue());
+        }
 
         state.setImages(imageResults);
         log.info("智能体5：所有配图生成完成, count={}", imageResults.size());
@@ -197,16 +208,16 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
             state.setFullContent(content);
             return;
         }
-        StringBuilder fullContent = new StringBuilder();
-
-        String[] lines = content.split("\n");
-        for (String line : lines) {
-            fullContent.append(line).append("\n");
-
-            // 检查是否是章节标题
-            if (line.startsWith("## ")) {
-                String sectionTitle = line.substring(3).trim();
-                insertImageAfterSection(fullContent, images, sectionTitle);
+        String fullContent = content;
+        for (ArticleState.ImageResult image : state.getImages()) {
+            if (image.getPosition() == 1) {
+                // 封面图,跳过不处理
+                continue;
+            }
+            String placeholder = image.getPlaceholderId();
+            if (placeholder != null && !placeholder.trim().isEmpty()) {
+                String imageMarkdown = "![" + image.getDescription() + "](" + image.getUrl() + ")";
+                fullContent = fullContent.replace(placeholder, imageMarkdown);
             }
         }
         state.setFullContent(fullContent.toString());
@@ -266,6 +277,7 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
         imageResult.setMethod(methodEnum.getValue());
         imageResult.setKeywords(requirement.getKeywords());
         imageResult.setSectionTitle(requirement.getSectionTitle());
+        imageResult.setPlaceholderId(requirement.getPlaceholderId());
         return imageResult;
     }
 
@@ -287,5 +299,23 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
                 break;
             }
         }
+    }
+
+    private String getStylePrompt(String style) {
+        if (style == null || style.isEmpty()) {
+            return "";
+        }
+        ArticleStyleEnum styleEnum = ArticleStyleEnum.getEnumByValue(style);
+        if (styleEnum == null) {
+            return "";
+        }
+
+        return switch (styleEnum) {
+            case TECH -> PromptConstant.STYLE_TECH_PROMPT;
+            case EMOTIONAL -> PromptConstant.STYLE_EMOTIONAL_PROMPT;
+            case EDUCATIONAL -> PromptConstant.STYLE_EDUCATIONAL_PROMPT;
+            case HUMOROUS -> PromptConstant.STYLE_HUMOROUS_PROMPT;
+            default -> StrUtil.EMPTY;
+        };
     }
 }

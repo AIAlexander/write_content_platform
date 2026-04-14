@@ -58,10 +58,10 @@ public class ArticleController {
         User loginUser = userService.getLoginUser(httpServletRequest);
 
         // 创建文章任务
-        String taskId = articleService.createArticleTask(request.getTopic(), loginUser);
+        String taskId = articleService.createArticleTask(request.getTopic(), request.getStyle(), loginUser);
 
         // 异步执行文章生成
-        articleAsyncService.executeArticle(taskId, request.getTopic());
+        articleAsyncService.executeArticle(taskId, request.getStyle(), request.getTopic());
 
         return ResultUtils.success(taskId);
     }

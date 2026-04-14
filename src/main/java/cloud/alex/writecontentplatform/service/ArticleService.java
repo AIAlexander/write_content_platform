@@ -16,7 +16,7 @@ import com.mybatisflex.core.service.IService;
 public interface ArticleService extends IService<Article> {
 
 
-    String createArticleTask(String topic, User loginUser);
+    String createArticleTask(String topic, String style, User loginUser);
 
     Article getByTaskId(String taskId);
 
