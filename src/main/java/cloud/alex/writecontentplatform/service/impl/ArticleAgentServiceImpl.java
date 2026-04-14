@@ -37,8 +37,7 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
     @Resource
     private DashScopeChatModel chatModel;
 
-    @Resource
-    private ImageSearchService imageSearchService;
+
 
     @Resource
     private FileService fileService;
@@ -155,31 +154,31 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
     private void generateImages(ArticleState state, Consumer<String> streamHandler) {
         List<ArticleState.ImageResult> imageResults = new ArrayList<>();
 
-        for (ArticleState.ImageRequirement requirement : state.getImageRequirementList()) {
-            log.info("智能体5：开始检索配图, position={}, keywords={}",
-                    requirement.getPosition(), requirement.getKeywords());
-
-            String imageUrl = imageSearchService.searchImage(requirement.getKeywords());
-
-            // 降级策略
-            ImageMethodEnum method = imageSearchService.getMethod();
-            if (imageUrl == null) {
-                // 生成图片失败，触发降级策略
-                imageUrl = imageSearchService.getFallbackImage(requirement.getPosition());
-                method = ImageMethodEnum.PICSUM;
-                log.warn("智能体5：图片检索失败, 使用降级方案，position={}", requirement.getPosition());
-            }
-
-            // 创建配图结果
-            ArticleState.ImageResult imageResult = buildImageResult(requirement, imageUrl, method);
-            imageResults.add(imageResult);
-
-            String completeMessage = SseMessageTypeEnum.IMAGE_COMPLETE.getStreamingPrefix() + JSONUtil.toJsonStr(imageResult);
-            streamHandler.accept(completeMessage);
-
-            log.info("智能体5：配图检索成功, position={}, method={}",
-                    requirement.getPosition(), method.getValue());
-        }
+//        for (ArticleState.ImageRequirement requirement : state.getImageRequirementList()) {
+//            log.info("智能体5：开始检索配图, position={}, keywords={}",
+//                    requirement.getPosition(), requirement.getKeywords());
+//
+//            String imageUrl = imageSearchService.searchImage(requirement.getKeywords());
+//
+//            // 降级策略
+//            ImageMethodEnum method = imageSearchService.getMethod();
+//            if (imageUrl == null) {
+//                // 生成图片失败，触发降级策略
+//                imageUrl = imageSearchService.getFallbackImage(requirement.getPosition());
+//                method = ImageMethodEnum.PICSUM;
+//                log.warn("智能体5：图片检索失败, 使用降级方案，position={}", requirement.getPosition());
+//            }
+//
+//            // 创建配图结果
+//            ArticleState.ImageResult imageResult = buildImageResult(requirement, imageUrl, method);
+//            imageResults.add(imageResult);
+//
+//            String completeMessage = SseMessageTypeEnum.IMAGE_COMPLETE.getStreamingPrefix() + JSONUtil.toJsonStr(imageResult);
+//            streamHandler.accept(completeMessage);
+//
+//            log.info("智能体5：配图检索成功, position={}, method={}",
+//                    requirement.getPosition(), method.getValue());
+//        }
 
         state.setImages(imageResults);
         log.info("智能体5：所有配图生成完成, count={}", imageResults.size());

@@ -67,7 +67,7 @@ public class ImageDto {
             return null;
         }
         String mimeType = "image/png";
-        int mimeEnd = dataUrl.indexOf(":");
+        int mimeEnd = dataUrl.indexOf(";");
         if (mimeEnd > 5) {
             mimeType = dataUrl.substring(5, mimeEnd);
         }

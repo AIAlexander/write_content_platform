@@ -22,6 +22,14 @@ public interface ImageSearchService {
         return ImageDto.fromUrl(url);
     }
 
+    /**
+     * 判断服务是否可以访问
+     * @return
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
 
     /**
      * 根据关键词检索图片
