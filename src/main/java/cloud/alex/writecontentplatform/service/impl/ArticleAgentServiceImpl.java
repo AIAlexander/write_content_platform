@@ -92,6 +92,103 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
         }
     }
 
+    @Override
+    public List<ArticleState.OutlineSection> aiModifyOutline(String mainTitle, String subTitle,
+                                                             List<ArticleState.OutlineSection> currentOutline,
+                                                             String modifySuggestion) {
+        String currentOutlineJson = JSONUtil.toJsonStr(currentOutline);
+
+        String prompt = PromptConstant.AI_MODIFY_OUTLINE_PROMPT
+                .replace("{mainTitle}", mainTitle)
+                .replace("{subTitle}", subTitle)
+                .replace("{currentOutline}", currentOutlineJson)
+                .replace("{modifySuggestion}", modifySuggestion);
+
+        String content = callLlm(prompt);
+        ArticleState.OutlineResult outlineResult = JsonUtils.parseJsonResponse(content, ArticleState.OutlineResult.class, "修改后的大纲");
+
+        log.info("AI修改大纲成功, sectionsCount={}", outlineResult.getSections().size());
+        return outlineResult.getSections();
+    }
+
+    /**
+     * 阶段1：生成标题方案（3-5个）
+     *
+     * @param state         文章状态
+     * @param streamHandler 流式输出处理器
+     */
+    @Override
+    public void generateTitlesProcess(ArticleState state, Consumer<String> streamHandler) {
+        try {
+            // 智能体1：生成标题方案
+            log.info("阶段1：开始生成标题方案, taskId={}", state.getTaskId());
+            generateTitle(state);
+            streamHandler.accept(SseMessageTypeEnum.AGENT1_COMPLETE.getValue());
+            log.info("阶段1：标题方案生成完成, taskId={}, optionsCount={}",
+                    state.getTaskId(), state.getTitleOptions().size());
+        } catch (Exception e) {
+            log.error("阶段1：标题方案生成失败, taskId={}", state.getTaskId(), e);
+            throw new RuntimeException("标题方案生成失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 阶段2：生成大纲（用户选择标题后）
+     *
+     * @param state         文章状态
+     * @param streamHandler 流式输出处理器
+     */
+    @Override
+    public void generateOutlineProcess(ArticleState state, Consumer<String> streamHandler) {
+        try {
+            // 智能体2：生成大纲（流式输出）
+            log.info("阶段2：开始生成大纲, taskId={}", state.getTaskId());
+            generateOutline(state, streamHandler);
+            streamHandler.accept(SseMessageTypeEnum.AGENT2_COMPLETE.getValue());
+            log.info("阶段2：大纲生成完成, taskId={}", state.getTaskId());
+        } catch (Exception e) {
+            log.error("阶段2：大纲生成失败, taskId={}", state.getTaskId(), e);
+            throw new RuntimeException("大纲生成失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 阶段3：生成正文+配图（用户确认大纲后）
+     *
+     * @param state         文章状态
+     * @param streamHandler 流式输出处理器
+     */
+    @Override
+    public void generateContentProcess(ArticleState state, Consumer<String> streamHandler) {
+        try {
+            // 智能体3：生成正文（流式输出）
+            log.info("阶段3：开始生成正文, taskId={}", state.getTaskId());
+            generateContent(state, streamHandler);
+            streamHandler.accept(SseMessageTypeEnum.AGENT3_COMPLETE.getValue());
+
+            // 智能体4：分析配图需求
+            log.info("阶段3：开始分析配图需求, taskId={}", state.getTaskId());
+            analyzeImageRequirements(state);
+            streamHandler.accept(SseMessageTypeEnum.AGENT4_COMPLETE.getValue());
+
+            // 智能体5：生成配图
+            log.info("阶段3：开始生成配图, taskId={}", state.getTaskId());
+            generateImages(state, streamHandler);
+            streamHandler.accept(SseMessageTypeEnum.AGENT5_COMPLETE.getValue());
+
+            // 图文合成：将配图插入正文
+            log.info("阶段3：开始图文合成, taskId={}", state.getTaskId());
+            mergeImagesToContent(state);
+            streamHandler.accept(SseMessageTypeEnum.MERGE_COMPLETE.getValue());
+
+            log.info("阶段3：正文生成完成, taskId={}", state.getTaskId());
+        } catch (Exception e) {
+            log.error("阶段3：正文生成失败, taskId={}", state.getTaskId(), e);
+            throw new RuntimeException("正文生成失败: " + e.getMessage(), e);
+        }
+    }
+
+
     /**
      * 智能体1：生成标题
      * @param state

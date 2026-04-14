@@ -11,6 +11,7 @@ import cloud.alex.writecontentplatform.model.entity.User;
 import cloud.alex.writecontentplatform.model.enums.ArticlePhaseEnum;
 import cloud.alex.writecontentplatform.model.enums.ArticleStatusEnum;
 import cloud.alex.writecontentplatform.model.vo.ArticleVO;
+import cloud.alex.writecontentplatform.service.ArticleAgentService;
 import cloud.alex.writecontentplatform.service.ArticleService;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.json.JSONUtil;
@@ -18,6 +19,7 @@ import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -33,6 +35,9 @@ import static cloud.alex.writecontentplatform.constant.UserConstant.ADMIN_ROLE;
 @Service
 @Slf4j
 public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> implements ArticleService {
+
+    @Autowired
+    private ArticleAgentService articleAgentService;
 
     @Override
     public String createArticleTask(String topic, String style, User loginUser) {
@@ -202,21 +207,53 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         ThrowUtils.throwIf(currentPhase != ArticlePhaseEnum.OUTLINE_EDITING,
                 ErrorCode.OPERATION_ERROR, "当前阶段不允许此操作");
         // 保存用户选择的大纲
+        article.setOutline(JSONUtil.toJsonStr(outline));
+        article.setPhase(ArticlePhaseEnum.CONTENT_GENERATING.getValue());
+        this.updateById(article);
+        log.info("用户确认大纲，taskId:{}, selectOutline:{}", taskId, outline.size());
     }
 
     @Override
     public void updatePhase(String taskId, ArticlePhaseEnum phase) {
+        Article article = getByTaskId(taskId);
+        ThrowUtils.throwIf(article == null, ErrorCode.NOT_FOUND_ERROR, "文章不存在");
 
+        article.setPhase(phase.getValue());
+        this.updateById(article);
+        log.info("更新文章阶段，taskId:{}, phase:{}", taskId, phase.getValue());
     }
 
     @Override
     public void saveTitleOptions(String taskId, List<ArticleState.TitleOption> titleOptions) {
+        Article article = getByTaskId(taskId);
+        ThrowUtils.throwIf(article == null, ErrorCode.NOT_FOUND_ERROR, "文章不存在");
 
+        article.setTitleOptions(JSONUtil.toJsonStr(titleOptions));
+        this.updateById(article);
+        log.info("保存文章标题选项，taskId:{}, titleOptions:{}", taskId, titleOptions.size());
     }
 
     @Override
     public List<ArticleState.OutlineSection> aiModifyOutline(String taskId, String modifySuggestion, User loginUser) {
-        return null;
+        Article article = getByTaskId(taskId);
+        ThrowUtils.throwIf(article == null, ErrorCode.NOT_FOUND_ERROR, "文章不存在");
+
+        checkArticlePermission(article, loginUser);
+
+        // 校验当前的阶段
+        ArticlePhaseEnum currentPhase = ArticlePhaseEnum.getByValue(article.getPhase());
+        ThrowUtils.throwIf(currentPhase != ArticlePhaseEnum.OUTLINE_EDITING,
+                ErrorCode.OPERATION_ERROR, "当前阶段不允许此操作");
+
+        // 当前的大纲
+        List<ArticleState.OutlineSection> list = JSONUtil.toList(article.getOutline(), ArticleState.OutlineSection.class);
+        // 调用ai服务修改
+        List<ArticleState.OutlineSection> outlineSections =
+                articleAgentService.aiModifyOutline(article.getMainTitle(), article.getSubTitle(), list, modifySuggestion);
+        article.setOutline(JSONUtil.toJsonStr(outlineSections));
+        this.updateById(article);
+        log.info("AI修改大纲，taskId:{}, outlineSize:{}", taskId, outlineSections.size());
+        return outlineSections;
     }
 
     /**
