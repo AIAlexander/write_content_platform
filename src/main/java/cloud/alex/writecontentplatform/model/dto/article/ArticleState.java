@@ -1,5 +1,6 @@
 package cloud.alex.writecontentplatform.model.dto.article;
 
+import cloud.alex.writecontentplatform.model.vo.ArticleVO;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -63,6 +64,21 @@ public class ArticleState implements Serializable {
      * 完整图文内容（整合后）
      */
     private String fullContent;
+
+    /**
+     * 用户补充描述
+     */
+    private String userDescription;
+
+    /**
+     * 当前阶段
+     */
+    private String phase;
+
+    /**
+     *
+     */
+    private List<TitleOption> titleOptions;
 
     /**
      * 标题结果
@@ -136,5 +152,11 @@ public class ArticleState implements Serializable {
         private String sectionTitle;
         private String description;
         private String placeholderId;
+    }
+
+    @Data
+    public static class TitleOption implements Serializable {
+        private String mainTitle;
+        private String subTitle;
     }
 }

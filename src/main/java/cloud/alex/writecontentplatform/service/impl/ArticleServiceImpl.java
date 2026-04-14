@@ -8,6 +8,7 @@ import cloud.alex.writecontentplatform.model.dto.article.ArticleQueryRequest;
 import cloud.alex.writecontentplatform.model.dto.article.ArticleState;
 import cloud.alex.writecontentplatform.model.entity.Article;
 import cloud.alex.writecontentplatform.model.entity.User;
+import cloud.alex.writecontentplatform.model.enums.ArticlePhaseEnum;
 import cloud.alex.writecontentplatform.model.enums.ArticleStatusEnum;
 import cloud.alex.writecontentplatform.model.vo.ArticleVO;
 import cloud.alex.writecontentplatform.service.ArticleService;
@@ -158,6 +159,64 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
         // 逻辑删除
         return this.removeById(id);
+    }
+
+    /**
+     * 用户确认标题
+     * @param taskId       任务ID
+     * @param mainTitle    选中的主标题
+     * @param subTitle     选中的副标题
+     * @param userDescription 用户补充描述
+     * @param loginUser    当前登录用户
+     */
+    @Override
+    public void confirmTitle(String taskId, String mainTitle, String subTitle, String userDescription, User loginUser) {
+        Article article = getByTaskId(taskId);
+        ThrowUtils.throwIf(article == null, ErrorCode.NOT_FOUND_ERROR, "文章不存在");
+
+        // 校验权限
+        checkArticlePermission(article, loginUser);
+
+        // 校验当前阶段
+        ArticlePhaseEnum currentPhase = ArticlePhaseEnum.getByValue(article.getPhase());
+        ThrowUtils.throwIf(currentPhase != ArticlePhaseEnum.TITLE_SELECTING,
+                ErrorCode.OPERATION_ERROR, "当前阶段不允许此操作");
+        // 保存用户的选择
+        article.setMainTitle(mainTitle);
+        article.setSubTitle(subTitle);
+        article.setUserDescription(userDescription);
+        article.setPhase(ArticlePhaseEnum.OUTLINE_GENERATING.getValue());
+        this.updateById(article);
+        log.info("用户确认标题，task={}, mainTitle={}", taskId, mainTitle);
+    }
+
+    @Override
+    public void confirmOutline(String taskId, List<ArticleState.OutlineSection> outline, User loginUser) {
+        Article article = getByTaskId(taskId);
+        ThrowUtils.throwIf(article == null, ErrorCode.NOT_FOUND_ERROR, "文章不存在");
+
+        // 校验权限
+        checkArticlePermission(article, loginUser);
+
+        ArticlePhaseEnum currentPhase = ArticlePhaseEnum.getByValue(article.getPhase());
+        ThrowUtils.throwIf(currentPhase != ArticlePhaseEnum.OUTLINE_EDITING,
+                ErrorCode.OPERATION_ERROR, "当前阶段不允许此操作");
+        // 保存用户选择的大纲
+    }
+
+    @Override
+    public void updatePhase(String taskId, ArticlePhaseEnum phase) {
+
+    }
+
+    @Override
+    public void saveTitleOptions(String taskId, List<ArticleState.TitleOption> titleOptions) {
+
+    }
+
+    @Override
+    public List<ArticleState.OutlineSection> aiModifyOutline(String taskId, String modifySuggestion, User loginUser) {
+        return null;
     }
 
     /**

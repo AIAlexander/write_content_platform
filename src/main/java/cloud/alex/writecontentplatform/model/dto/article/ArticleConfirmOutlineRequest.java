@@ -1,0 +1,27 @@
+package cloud.alex.writecontentplatform.model.dto.article;
+
+import lombok.Data;
+
+import java.io.Serializable;
+import java.util.List;
+
+/**
+ * @author wangshuhao
+ * @date 2026/4/14
+ */
+@Data
+public class ArticleConfirmOutlineRequest implements Serializable {
+
+    /**
+     * 任务ID
+     */
+    private String taskId;
+
+    /**
+     * 用户编辑后的大纲
+     */
+    private List<ArticleState.OutlineSection> outline;
+
+    private static final long serialVersionUID = 1L;
+}
+

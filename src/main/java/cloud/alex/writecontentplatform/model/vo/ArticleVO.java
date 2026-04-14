@@ -164,6 +164,9 @@ public class ArticleVO implements Serializable {
         if (article.getImages() != null) {
             articleVO.setImages(JSONUtil.toList(article.getImages(), ImageItem.class));
         }
+        if (article.getTitleOptions() != null) {
+            articleVO.setTitleOptions(JSONUtil.toList(article.getTitleOptions(), TitleOption.class));
+        }
 
         return articleVO;
     }
