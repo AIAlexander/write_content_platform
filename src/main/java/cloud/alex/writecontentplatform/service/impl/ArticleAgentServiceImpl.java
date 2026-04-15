@@ -197,9 +197,9 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
         String prompt = PromptConstant.AGENT1_TITLE_PROMPT
                 .replace("{topic}", state.getTopic()) + getStylePrompt(state.getStyle());
         String content = callLlm(prompt);
-        ArticleState.TitleResult titleResult = JsonUtils.parseJsonResponse(content, ArticleState.TitleResult.class, "标题");
-        state.setTitle(titleResult);
-        log.info("智能体1：标题生成成功，mainTitle={}", titleResult.getMainTitle());
+        List<ArticleState.TitleOption> titleResultList = JsonUtils.parseJsonListResponse(content, ArticleState.TitleOption.class, "标题");
+        state.setTitleOptions(titleResultList);
+        log.info("智能体1：标题生成成功，titleOptionList size={}", titleResultList.size());
     }
 
     /**
@@ -208,9 +208,17 @@ public class ArticleAgentServiceImpl implements ArticleAgentService {
      * @param streamHandler
      */
     private void generateOutline(ArticleState state, Consumer<String> streamHandler) {
+        // 构建Prompt，根据是否有用户补充描述插入对应部分
+        String descriptionSection = "";
+        if (state.getUserDescription() != null
+                && !state.getUserDescription().trim().isEmpty()) {
+            descriptionSection = PromptConstant.AGENT2_DESCRIPTION_SECTION
+                    .replace("{userDescription}", state.getUserDescription());
+        }
         String prompt = PromptConstant.AGENT2_OUTLINE_PROMPT
                 .replace("{mainTitle}", state.getTitle().getMainTitle())
-                .replace("{subTitle}", state.getTitle().getSubTitle()) + getStylePrompt(state.getStyle());
+                .replace("{subTitle}", state.getTitle().getSubTitle())
+                .replace("{descriptionSection}", descriptionSection)+ getStylePrompt(state.getStyle());
         String content = callLlmWithStreaming(prompt, streamHandler, SseMessageTypeEnum.AGENT2_STREAMING);
         ArticleState.OutlineResult outlineResult = JsonUtils.parseJsonResponse(content, ArticleState.OutlineResult.class, "大纲");
         state.setOutline(outlineResult);

@@ -61,8 +61,9 @@ public class ArticleController {
         // 创建文章任务
         String taskId = articleService.createArticleTask(request.getTopic(), request.getStyle(), loginUser);
 
+        SseEmitter emitter = sseEmitterManager.createEmitter(taskId);
         // 异步执行文章生成
-        articleAsyncService.executeArticle(taskId, request.getStyle(), request.getTopic());
+        articleAsyncService.executePhase1(taskId, request.getStyle(), request.getTopic());
 
         return ResultUtils.success(taskId);
     }
